@@ -57,215 +57,169 @@ struct Rect {
 
 template <unsigned int N>
 struct Polynomial {
-    typedef typename std::array<real, N + 1>::size_type size_type;
-    typedef Polynomial<N - 1> Derived;
-    
+	typedef typename std::array<real, N + 1>::size_type size_type;
+	typedef Polynomial<N - 1> Derived;
+
 	real factors[N + 1];
 
-    Polynomial()
-    {
-        memset(factors, 0, (N + 1)*sizeof(real));
-    }
-    
-    Polynomial(const real factors[N + 1])
-    {
-        memcpy(this->factors, factors, (N + 1)*sizeof(real));
-    }
-    
-    // Retourne le degre du polynome
-    unsigned int degree() const
-    {
-        for (int i = N; i > 0; --i) {
-            if (fabs(factors[i]) > std::numeric_limits<real>::epsilon()) {
-                return i;
-            }
-        }
-        return 0;
-    }
-    
-    // Evalue le polynome pour une valeur donnee
-    real operator()(real x) const
-    {
-        real v = 0;
-        unsigned int i = 0;
-        
-        do {
-            v = v*x + factors[N - i];
-        } while (++i < (N + 1));
-        
-        return v;
-    }
-    
-    // Retourne le coefficient du degre specifie
-    real & operator[](size_type i)
-    {
-        return factors[i];
-    }
+	Polynomial()
+	{
+		memset(factors, 0, (N + 1)*sizeof(real));
+	}
 
-    // Retourne le coefficient du degre specifie
-    const real & operator[](size_type i) const
-    {
-        return (*const_cast<Polynomial<N> *>(this))[i];
-    }
-    
-    // Retourne le polynome derive
-    Derived derived() const
-    {
-        real derived_factors[N];
-        for (int i = 1; i <= N; ++i) {
-            derived_factors[i - 1] = i*factors[i];
-        }
-        return Derived(derived_factors);
-    }
+	Polynomial(const real factors[N + 1])
+	{
+		memcpy(this->factors, factors, (N + 1)*sizeof(real));
+	}
+
+	/// Retourne le degre du polynome
+	unsigned int degree() const
+	{
+		for (int i = N; i > 0; --i) {
+			if (fabs(factors[i]) > std::numeric_limits<real>::epsilon()) {
+				return i;
+			}
+		}
+		return 0;
+	}
+
+	/// Evalue le polynome pour une valeur donnee
+	real operator()(real x) const
+	{
+		real v = 0;
+		unsigned int i = 0;
+
+		do {
+			v = v*x + factors[N - i];
+		} while (++i < (N + 1));
+
+		return v;
+	}
+
+	/// Retourne le coefficient du degre specifie
+	real & operator[](size_type i)
+	{
+		return factors[i];
+	}
+
+	/// Retourne le coefficient du degre specifie
+	const real & operator[](size_type i) const
+	{
+		return (*const_cast<Polynomial<N> *>(this))[i];
+	}
+
+	/// Retourne le polynome derive
+	Derived derived() const
+	{
+		real derived_factors[N];
+		for (int i = 1; i <= N; ++i) {
+			derived_factors[i - 1] = i*factors[i];
+		}
+		return Derived(derived_factors);
+	}
 };
 
 class Bezier {
-    typedef Polynomial<3> Polynomial;
-    
-    Polynomial x,  y;
-    Polynomial::Derived dx, dy; // Dérivées des composantes x et y
-    
-    // Calcule les extremums locaux sur l'interval [0, 1] du polynome p de
-    // derivee d.
-    static inline void
-    extremum(real &min, real &max,
-             const Polynomial::Derived &d, const Polynomial &p)
-    {
-        // On cherche les solution de l'equation d(x) = 0.
-        // On ne considere que les valeurs appartenant a l'intervalle [0, 1].
-        switch (d.degree())
-        {
-        case 2:
-            {
-                auto discriminant = SQUARE(d[1]) - 4*d[2]*d[0];
-                if (discriminant >= 0) {
-                    auto sqrt_of_discriminant = std::sqrt(discriminant);
-                    
-                    auto r1 = (-d[1] - sqrt_of_discriminant)/(2*d[2]);
-                    if (r1 >= 0 && r1 <= 1) {
-                        auto v = p(r1);
-                        min = std::min(v, min);
-                        max = std::max(v, max);
-                    }
+	typedef Polynomial<3> Polynomial;
 
-                    auto r2 = (-d[1] + sqrt_of_discriminant)/(2*d[2]);
-                    if (r2 >= 0 && r2 <= 1) {
-                        auto v = p(r2);
-                        min = std::min(v, min);
-                        max = std::max(v, max);
-                    }
-                }
-            }
-            break;
-        
-        case 1:
-            {
-                auto r = -(d[0]/d[1]);
-                if (r >= 0 && r <= 1) {
-                    auto v = p(r);
-                    min = std::min(v, min);
-                    max = std::max(v, max);
-                }
-            }
-            break;
-                
-        default: break;
-        }
-    }
+	Polynomial x,  y;
+	Polynomial::Derived dx, dy;
+
+	/// Calcule les extremums locaux sur l'interval [0, 1] du polynome p de
+	/// derivee d.
+	static inline void
+	extremum(real &min, real &max,
+	const Polynomial::Derived &d, const Polynomial &p)
+	{
+		/// On cherche les solution de l'equation d(x) = 0.
+		/// On ne considere que les valeurs appartenant a l'intervalle [0, 1].
+		switch (d.degree())
+		{
+		case 2: {
+			auto discriminant = SQUARE(d[1]) - 4*d[2]*d[0];
+			if (discriminant >= 0) {
+				auto sqrt_of_discriminant = std::sqrt(discriminant);
+
+				auto r1 = (-d[1] - sqrt_of_discriminant)/(2*d[2]);
+				if (r1 >= 0 && r1 <= 1) {
+					auto v = p(r1);
+					min = std::min(v, min);
+					max = std::max(v, max);
+				}
+
+				auto r2 = (-d[1] + sqrt_of_discriminant)/(2*d[2]);
+				if (r2 >= 0 && r2 <= 1) {
+					auto v = p(r2);
+					min = std::min(v, min);
+					max = std::max(v, max);
+				}
+			}
+		} break;
+
+		case 1: {
+			auto r = -(d[0]/d[1]);
+			if (r >= 0 && r <= 1) {
+				auto v = p(r);
+				min = std::min(v, min);
+				max = std::max(v, max);
+			}
+		} break;
+
+		default: break;
+		}
+	}
 
 public:
-    /*
-     * Une courbe de bezier est une fonction parametrique définie sur [0,1]
-     * comme telle:
-     *    [0, 1] -> ℝ×ℝ
-     * Bezier(t) = (x(t), y(t))
-     *      x(t) = P0.x*(1-t)³ + 3*P1.x*(1-t)²t + 3*P2.x(1-t)t² + 3*P3.x*t³
-     *      y(t) = P0.y*(1-t)³ + 3*P1.y*(1-t)²t + 3*P2.y(1-t)t² + 3*P3.y*t³
-     *
-     * Nous utiliserons la forme developpee des polynomes.
-     *
-     * Pour plus d'infos consulter:
-     *   http://pomax.github.io/bezierinfo
-     *   http://floris.briolas.nl/floris/2009/10/bounding-box-of-cubic-bezier
-     */
-    Bezier(const Point &p0, const Point &p1, const Point &p2, const Point &p3)
-    {
-        // Initialize les coefficients du polynome pour la composante x
-        x[0] = 1*p0.x;
-        x[1] = 3*p1.x - 3*p0.x;
-        x[2] = 3*p2.x - 6*p1.x + 3*p0.x;
-        x[3] = 1*p3.x - 3*p2.x + 3*p1.x - p0.x;
-        
-        // Initialize les coefficients du polynome pour la composante y
-        y[0] = 1*p0.y;
-        y[1] = 3*p1.y - 3*p0.y;
-        y[2] = 3*p2.y - 6*p1.y + 3*p0.y;
-        y[3] = 1*p3.y - 3*p2.y + 3*p1.y - p0.y;
-        
-        dx = x.derived();
-        dy = y.derived();
-    }
-    
-    // Evalue la courbe pour la valeur donnee
-    Point operator()(real t) const
-    {
-        return {"", x(t), y(t)};
-    }
-    
-    // Calcul et retourne la bouding box de la courbe.
-    Rect boudingBox() const
-    {
-        auto min_x = std::min(x(0), x(1));
-        auto max_x = std::max(x(0), x(1));
-        auto min_y = std::min(y(0), y(1));
-        auto max_y = std::max(y(0), y(1));
-        
-        extremum(min_x, max_x, dx, x);
-        extremum(min_y, max_y, dy, y);
-        
-        return Rect{{"", min_x, min_y}, {"", max_x, max_y}};
-    }
-};
+	/// Une courbe de bezier est une fonction parametrique définie sur [0,1]
+	/// comme telle:
+	///     [0, 1] -> ℝ×ℝ
+	/// Bezier(t) = (x(t), y(t))
+	///     x(t) = P0.x*(1-t)³ + 3*P1.x*(1-t)²t + 3*P2.x(1-t)t² + 3*P3.x*t³
+	///     y(t) = P0.y*(1-t)³ + 3*P1.y*(1-t)²t + 3*P2.y(1-t)t² + 3*P3.y*t³
+	///
+	/// Nous utiliserons la forme developpee des polynomes.
+	///
+	/// Pour plus d'infos consulter:
+	///   http://pomax.github.io/bezierinfo
+	///   http://floris.briolas.nl/floris/2009/10/bounding-box-of-cubic-bezier
+	Bezier(const Point &p0, const Point &p1, const Point &p2, const Point &p3)
+	{
+		// Initialize les coefficients du polynome pour la composante x
+		x[0] = 1*p0.x;
+		x[1] = 3*p1.x - 3*p0.x;
+		x[2] = 3*p2.x - 6*p1.x + 3*p0.x;
+		x[3] = 1*p3.x - 3*p2.x + 3*p1.x - p0.x;
 
+		// Initialize les coefficients du polynome pour la composante y
+		y[0] = 1*p0.y;
+		y[1] = 3*p1.y - 3*p0.y;
+		y[2] = 3*p2.y - 6*p1.y + 3*p0.y;
+		y[3] = 1*p3.y - 3*p2.y + 3*p1.y - p0.y;
 
-// class Bezier {
-// public:
-// 	Bezier(Point p0, Point p1, Point p2, Point p3) :
-// 		x_{{{
-// 			1*p3.x - 3*p2.x + 3*p1.x - p0.x,
-// 			3*p2.x - 6*p1.x + 3*p0.x,
-// 			3*p1.x - 3*p0.x,
-// 			1*p0.x }}},
-// 		y_{{{
-// 			1*p3.y - 3*p2.y + 3*p1.y - p0.y,
-// 			3*p2.y - 6*p1.y + 3*p0.y,
-// 			3*p1.y - 3*p0.y,
-// 			1*p0.y }}},
-// 		dx_{x_.derived().factors},
-// 		dy_{y_.derived().factors}
-// 	{ }
+		dx = x.derived();
+		dy = y.derived();
+	}
 
-// 	Point operator()(float t)
-// 	{
-// 		return Point{"", x_(t), y_(t)};
-// 	}
+	/// Evalue la courbe pour la valeur donnee
+	Point operator()(real t) const
+	{
+		return {"", x(t), y(t)};
+	}
 
-// 	const Polynomial<3> & x() const
-// 	{ return x_; }
+	/// Calcul et retourne la bouding box de la courbe.
+	Rect boudingBox() const
+	{
+		auto min_x = std::min(x(0), x(1));
+		auto max_x = std::max(x(0), x(1));
+		auto min_y = std::min(y(0), y(1));
+		auto max_y = std::max(y(0), y(1));
 
-// 	const Polynomial<3> & y() const
-// 	{ return y_; }
+		extremum(min_x, max_x, dx, x);
+		extremum(min_y, max_y, dy, y);
 
-// 	const Polynomial<2> & dx() const
-// 	{ return dx_; }
-
-// 	const Polynomial<2> & dy() const
-// 	{ return dy_; }
-
-// private:
-// 	Polynomial<3> x_, y_;
-// 	Polynomial<2> dx_, dy_;
-// };
+		return Rect{{"", min_x, min_y}, {"", max_x, max_y}};
+	}
+	};
 
 template<typename T>
 Rect boundingBox(const T &);
@@ -274,68 +228,6 @@ Rect boundingBox(const Rect &r)
 {
 	return r;
 }
-
-// static inline void
-// extremum(float &min, float &max,
-// 			const Polynomial<3>::Derived &d, const Polynomial<3> &p)
-// {
-// 	switch (d.effectiveDegree()) {
-// 	case 1:
-// 		{
-// 			auto r = -d[0]/d[1];
-// 			if (r >= 0 && r <= 1) {
-// 				auto v = p(r);
-// 				min = std::min(v, min);
-// 				max = std::max(v, max);
-// 			}
-// 		}
-// 		break;
-
-// 	case 2:
-// 		{
-// 			auto delta = SQUARE(p[1]) - 4*p[2]*p[0];
-
-// 			if (delta >= 0) {
-// 				auto sqrt_of_delta = std::sqrt(delta);
-// 				auto r1 = (-d[1] - sqrt_of_delta)/(2*d[2]);
-// 				auto r2 = (-d[1] + sqrt_of_delta)/(2*d[2]);
-
-// 				if (r1 >= 0 && r1 <= 1) {
-// 					auto v = p(r1);
-// 					min = std::min(v, min);
-// 					max = std::max(v, max);
-// 				}
-
-// 				if (r2 >= 0 && r2 <= 1) {
-// 					auto v = p(r2);
-// 					min = std::min(v, min);
-// 					max = std::max(v, max);
-// 				}
-// 			}
-// 		}
-// 		break;
-
-// 	default:
-// 		break;
-// 	}
-// }
-
-// template<>
-// Rect boundingBox(const Bezier &c)
-// {
-// 	auto &x = c.x();
-// 	auto &y = c.y();
-
-// 	auto min_x = std::min(x(0), x(1));
-// 	auto max_x = std::max(x(0), x(1));
-// 	auto min_y = std::min(y(0), y(1));
-// 	auto max_y = std::max(y(0), y(1));
-
-// 	extremum(min_x, max_x, c.dx(), x);
-// 	extremum(min_y, max_y, c.dy(), y);
-
-// 	return Rect{{"", min_x, min_y}, {"", max_x, max_y}};
-// }
 
 class SDLError : public std::exception {
 	std::string msg_;
