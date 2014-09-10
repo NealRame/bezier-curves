@@ -2,6 +2,7 @@
 #include <array>
 #include <cmath>
 #include <exception>
+#include <functional>
 #include <iostream>
 #include <limits>
 #include <memory>
@@ -35,25 +36,67 @@ struct Point {
 	}
 };
 
-struct Rect {
-	Point topLeft;
-	Point bottomRight;
+class Rect {
+	Point topLeft_;
+	Point bottomRight_;
+public:
+	Rect() 
+	{ }
+
+	Rect(Point top_left, Point bottom_right) :
+		topLeft_({
+			"",
+			std::min(top_left.x, bottom_right.x),
+			std::min(top_left.y, bottom_right.y)
+		}),
+		bottomRight_({
+			"",
+			std::max(top_left.x, bottom_right.x),
+			std::max(top_left.y, bottom_right.y)
+		})
+	{ }
+
 	float width() const
-	{
-		return fabs(bottomRight.x - topLeft.x);
-	}
+	{ return fabs(bottomRight_.x - topLeft_.x); }
+
 	float height() const
-	{
-		return fabs(bottomRight.y - topLeft.y);
-	}
+	{ return fabs(bottomRight_.y - topLeft_.y); }
+
+	Point bottomLeft() const
+	{ return {"", topLeft_.x, bottomRight_.y}; }
+
+	Point bottomRight() const 
+	{ return bottomRight_; }
+
+	Point bottomMiddle() const
+	{ return {"", (topLeft_.x + bottomRight_.x)/2, bottomRight_.y}; }
+
+	Point topLeft() const
+	{ return topLeft_; }
+
+	Point topRight() const
+	{ return {"", bottomRight_.x, topLeft_.y}; }
+
+	Point topMiddle() const
+	{ return {"", (topLeft_.x + bottomRight_.x)/2, bottomRight_.y}; }
+
+	Point middleLeft() const
+	{ return {"", topLeft_.x, (topLeft_.y + bottomRight_.y)/2}; }
+
+	Point middleRight() const
+	{ return {"", bottomRight_.x, (topLeft_.y + bottomRight_.y)/2}; }
+
+	Point center() const
+	{ return {"", (topLeft_.x + bottomRight_.x)/2, (topLeft_.y + bottomRight_.y)/2}; }
+
 	std::string toString() const
 	{
 		return (boost::format("[%1%, %2%, %3%, %4%]") 
-					% topLeft.x % topLeft.y % width() % height()).str();
+				% topLeft_.x
+				% topLeft_.y
+				% width() % height()).str();
 	}
 };
-
-
 
 template <unsigned int N>
 struct Polynomial {
@@ -170,6 +213,24 @@ class Bezier {
 	}
 
 public:
+	static Bezier fromBoundingBox(const Rect &box, real ratio = 1/8) {
+		auto p1 = box.topRight(), p2 = box.bottomRight();
+
+		auto B = box.middleLeft();
+		auto C = box.middleRight();
+		auto A = Point{"", B.x - (C.x - B.x)/3, B.y};
+
+		auto d = std::fabs(p2.y - p1.y)*ratio;
+
+		auto c1 = Point{"", A.x, p1.y + d};
+		auto c2 = Point{"", A.x, p2.y - d};
+
+		return Bezier(p1, c1, c2, p2);
+	}
+
+	Bezier()
+	{ }
+
 	/// Une courbe de bezier est une fonction parametrique définie sur [0,1]
 	/// comme telle:
 	///     [0, 1] -> ℝ×ℝ
@@ -182,7 +243,8 @@ public:
 	/// Pour plus d'infos consulter:
 	///   http://pomax.github.io/bezierinfo
 	///   http://floris.briolas.nl/floris/2009/10/bounding-box-of-cubic-bezier
-	Bezier(const Point &p0, const Point &p1, const Point &p2, const Point &p3)
+	Bezier(const Point &p0, const Point &p1, const Point &p2, const Point &p3) :
+		p1_(p0), p2_(p3), c1_(p1), c2_(p2)
 	{
 		// Initialize les coefficients du polynome pour la composante x
 		x[0] = 1*p0.x;
@@ -217,9 +279,24 @@ public:
 		extremum(min_x, max_x, dx, x);
 		extremum(min_y, max_y, dy, y);
 
-		return Rect{{"", min_x, min_y}, {"", max_x, max_y}};
+		return Rect({"", min_x, min_y}, {"", max_x, max_y});
 	}
-	};
+
+	Point p1() const 
+	{ return p1_; }
+
+	Point p2() const
+	{ return p2_; }
+
+	Point ctrl1() const
+	{ return c1_; }
+
+	Point ctrl2() const
+	{ return c2_; }
+
+private:
+	Point p1_, p2_, c1_, c2_; 
+};
 
 template<typename T>
 Rect boundingBox(const T &);
@@ -391,6 +468,13 @@ public:
 				return false;
 			}
 		} while ((t += 0.05) <= 1);
+
+		// drawPoint(c.p1());
+		// drawPoint(c.p2());
+
+		// drawPoint(c.ctrl1());
+		// drawPoint(c.ctrl2());
+
 		return true;
 	}
 
@@ -402,8 +486,8 @@ public:
 	bool drawRect(Rect r)
 	{
 		SDL_Rect rect = { 
-			int16_t(r.topLeft.x),
-			int16_t(r.topLeft.y),
+			int16_t(r.topLeft().x),
+			int16_t(r.topLeft().y),
 			int16_t(r.width()),
 			int16_t(r.height())
 		};
@@ -413,6 +497,61 @@ public:
 	void present()
 	{
 		SDL_RenderPresent(renderer_.get());
+	}
+};
+
+class Parenthesis {
+	Bezier extern_, intern_;
+public:
+	enum Type {
+		Opening, Closing
+	};
+
+	Parenthesis(Rect box, Type type, real weight, real ratio)
+	{
+		Point p1, p2, B, C;
+
+		switch (type) {
+		case Opening:
+			p1 = box.topRight();
+			p2 = box.bottomRight();
+			C = box.middleRight();
+			B = box.middleLeft();
+			weight = std::fabs(weight);
+			break;
+		case Closing:
+			p1 = box.topLeft();
+			p2 = box.bottomLeft();
+			C = box.middleLeft();
+			B = box.middleRight();
+			weight = -1*std::fabs(weight);
+		}
+		
+		auto A = Point{"", B.x - (C.x - B.x)/3, B.y};
+		auto d = std::fabs(p2.y - p1.y)*ratio;
+		auto c1 = Point{"", A.x, p1.y + d};
+		auto c2 = Point{"", A.x, p2.y - d};
+
+		extern_ = Bezier(p1, c1, c2, p2);
+		intern_ = Bezier(p1, {"", c1.x + weight, c1.y},{"", c2.x + weight, c2.y}, p2);
+	}
+
+	bool draw(Renderer &renderer)
+	{
+		renderer.setDrawColor({0x00, 0xff, 0x00});
+
+		renderer.drawCurve(extern_);
+		renderer.drawCurve(intern_);
+		// renderer.drawPoint(p1);
+		// renderer.drawPoint(p2);
+
+		// renderer.setDrawColor({0xff, 0x00, 0x00});
+
+		// renderer.drawPoint(A);
+		// renderer.drawPoint(B);
+		// renderer.drawPoint(C);
+
+		return true;
 	}
 };
 
@@ -433,8 +572,11 @@ int main(int argc, char **argv) {
 
 		bool cont = true;
 
-		std::array<Point, 4> points = {{ {"p1", 10, 10}, {"c1", 110, 110}, {"c2", 210, 210}, {"p2", 310, 310} }};
-		Point *selected = nullptr;
+
+		bool drag = false;
+		Point p1, p2;
+
+		auto box = Rect({"p1", 128, 64}, {"p2", 256, 340});
 
 		do {
 			SDL_Event ev;
@@ -446,18 +588,18 @@ int main(int argc, char **argv) {
 						break;
 
 					case SDL_MOUSEBUTTONDOWN:
-						selected =
-							select<4>(points, {"", float(ev.button.x), float(ev.button.y)});
+						drag = true;
+						p1 = p2 = {"", float(ev.button.x), float(ev.button.y)};
 						break;
 
 					case SDL_MOUSEBUTTONUP:
-						selected = nullptr;
+						drag = false;
+						box = Rect(p1, p2);
 						break;
 
 					case SDL_MOUSEMOTION:
-						if (selected != nullptr) {
-							selected->x = int16_t(ev.motion.x);
-							selected->y = int16_t(ev.motion.y);
+						if (drag) {
+							p2 = {"", float(ev.motion.x), float(ev.motion.y)};							
 						}
 						break;
 
@@ -469,18 +611,52 @@ int main(int argc, char **argv) {
 				renderer->clear();
 
 				renderer->setDrawColor({ 0xff, 0xff, 0xff });
+				renderer->drawRect(Rect(p1, p2));
 
-				Bezier curve(points[0], points[1], points[2], points[3]);
+				// renderer->setDrawColor({ 0x00, 0xff, 0x00 });
+				// renderer->drawLine(t1, t2);
 
-				renderer->drawCurve(curve);
-				renderer->setDrawColor({ 0xff, 0x00, 0x00 });
-				renderer->drawPoint(points[0]);
-				renderer->drawPoint(points[1]);
-				renderer->drawPoint(points[2]);
-				renderer->drawPoint(points[3]);
+				// renderer->setDrawColor({ 0xff, 0x00, 0x00 });
+
+				// renderer->drawPoint(p1);
+				// renderer->drawPoint(p2);
+
+				// renderer->drawPoint(A);
+				// renderer->drawPoint(B);
+				// renderer->drawPoint(C);
+
+				// // renderer->drawPoint(t1);
+				// // renderer->drawPoint(t2);
+
+				// renderer->drawPoint(c1);
+				// renderer->drawPoint(c2);
+
+				// Bezier curve(p1, c1, c2, p2);
+
+				Parenthesis parenthesis(box, Parenthesis::Closing, 8., 1./4);
 
 				renderer->setDrawColor({ 0x00, 0xff, 0x00 });
-				renderer->drawRect(curve.boudingBox());
+				parenthesis.draw(*renderer);
+
+				// renderer->drawCurve(Bezier::fromBoundingBox(box, 1./4));
+
+				// renderer->setDrawColor({ 0xff, 0x00, 0x00 });
+				// renderer->drawCurve(Bezier::fromBoundingBox(box, 1./8));
+
+				// renderer->setDrawColor({ 0x00, 0x00, 0xff });
+				// renderer->drawCurve(Bezier::fromBoundingBox(box, 1./4));
+
+				// renderer->setDrawColor({ 0xff, 0x00, 0x00 });
+				// renderer->drawPoint(points[0]);
+				// renderer->drawPoint(points[1]);
+				// renderer->drawPoint(points[2]);
+				// renderer->drawPoint(points[3]);
+
+				// renderer->setDrawColor({ 0x00, 0xff, 0x00 });
+				// renderer->drawRect(curve.boudingBox());
+
+
+
 
 				renderer->present();
 			}
