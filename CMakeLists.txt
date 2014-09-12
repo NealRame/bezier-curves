@@ -38,7 +38,13 @@ file(MAKE_DIRECTORY ${NR_BINARIES_OUTPUT_DIR})
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${NR_BINARIES_OUTPUT_DIR})
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${NR_BINARIES_OUTPUT_DIR})
 
-add_executable(bezier "main.cc")
+file(GLOB HDRS "src/**.h")
+file(GLOB SRCS "src/**.cc")
+
+message("-- SRCS: ${SRCS}")
+message("-- HDRS: ${HDRS}")
+
+add_executable(bezier ${SRCS} ${HDRS})
 target_link_libraries(bezier sdl2)
 
 ###

@@ -1,0 +1,9 @@
+#include "color.h"
+
+using namespace nealrame;
+
+const Color Color::Red    {0xff, 0x00, 0x00};
+const Color Color::Green  {0x00, 0xff, 0x00};
+const Color Color::Blue   {0x00, 0x00, 0xff};
+const Color Color::White  {0xff, 0xff, 0xff};
+const Color Color::Black  {0x00, 0x00, 0x00};
